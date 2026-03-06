@@ -1,24 +1,29 @@
-import serial
 import argparse
 from s_record_to_hex_converter import get_hex_from_srecord
+from serial import Serial, SerialException
+import sys
+
+def get_serial_connection(port: str) -> Serial:
+    try:
+        ser = serial.Serial(
+            port=port,
+            baudrate=9600,
+            bytesize=8,
+            parity='O',
+            stopbits=2.0,
+            timeout=1
+        )
+
+        return ser
+    except SerialException as e:
+        raise e
 
 def get_chunked_data(series_of_data, chunk_size: int) -> list:
     return [series_of_data[i:i+chunk_size] for i in range(0, len(series_of_data), chunk_size)]
 
-def load_data_to_programmer(contiguous_data: str, port: str) -> None:
-    ser = serial.Serial(
-        port=port,
-        baudrate=9600,
-        bytesize=8,
-        parity='O',
-        stopbits=2.0,
-        timeout=1
-    )
-
+def load_data_to_programmer(contiguous_data: str, ser: Serial) -> None:
     if not ser.dsr:
-        print('Error: Programmer not set to RS 232 Interface')
-        ser.close()
-        return
+        raise RuntimeError('Error: Programmer not set to RS 232 Interface')
 
     # Reset programmer to make it anticipate a control word next
     ser.dtr = False
@@ -57,5 +62,20 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    with open(args.input_file, 'r') as f:
-        load_data_to_programmer(get_hex_from_srecord(f.read()), args.port)
+    try:
+        serial_connection = get_serial_connection(args.port)
+    except SerialException as e:
+        print(e)
+        sys.exit(1)
+
+    try:
+        with open(args.input_file, 'r') as f:
+            load_data_to_programmer(get_hex_from_srecord(f.read()), serial_connection)
+
+        print('\nDownload successful!')
+    except FileNotFoundError as e:
+        print(e)
+    except RuntimeError as e:
+        print(e)
+    finally:
+        serial_connection.close()
