@@ -5,7 +5,7 @@ import sys
 
 def get_serial_connection(port: str) -> Serial:
     try:
-        ser = serial.Serial(
+        ser = Serial(
             port=port,
             baudrate=9600,
             bytesize=8,
